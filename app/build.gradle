@@ -64,24 +64,48 @@ android {
 task prepareCore {
     doLast {
         for (abi in ['x86', 'x86_64', 'armeabi-v7a', 'arm64-v8a']) {
-            var jniAbiFolder = file("${rootProject.projectDir}/app/src/main/jniLibs/$abi")
+            def jniAbiFolder = file("${rootProject.projectDir}/app/src/main/jniLibs/$abi")
 
-            if (jniAbiFolder.exists() && jniAbiFolder.list().length > 0)
+            if (jniAbiFolder.exists() && jniAbiFolder.list().length > 0) {
+                println("✓ Core already exists for $abi, skipping...")
                 continue
+            }
 
             jniAbiFolder.mkdirs()
 
-            download {
-                src "https://buildbot.libretro.com/nightly/android/latest/$abi/${configValue('config_core')}_libretro_android.so.zip"
-                dest "${rootProject.projectDir}/app/src/main/jniLibs/$abi"
+            def downloadUrl = "https://buildbot.libretro.com/nightly/android/latest/$abi/${configValue('config_core')}_libretro_android.so.zip"
+            def zipPath = "${rootProject.projectDir}/app/src/main/jniLibs/$abi/${configValue('config_core')}_libretro_android.so.zip"
+            
+            println("Downloading core for $abi...")
+            
+            // Use ProcessBuilder for better control and error handling
+            def pb = new ProcessBuilder("bash", "-c", "curl -fL# '${downloadUrl}' -o '${zipPath}'")
+            pb.directory(rootProject.projectDir)
+            pb.inheritIO()
+            def process = pb.start()
+            int exitCode = process.waitFor()
+            
+            if (exitCode != 0) {
+                println("⚠️ Warning: Core not available for $abi - skipping this architecture")
+                if (jniAbiFolder.exists()) {
+                    jniAbiFolder.deleteDir()
+                }
+                continue
             }
-            copy {
-                from zipTree("${rootProject.projectDir}/app/src/main/jniLibs/$abi/${configValue('config_core')}_libretro_android.so.zip")
-                into "${rootProject.projectDir}/app/src/main/jniLibs/$abi"
-                rename "${configValue('config_core')}_libretro_android.so", "libcore.so"
-            }
-            delete {
-                delete "${rootProject.projectDir}/app/src/main/jniLibs/$abi/${configValue('config_core')}_libretro_android.so.zip"
+            
+            if (file(zipPath).exists()) {
+                println("✓ Downloaded core for $abi, extracting...")
+                copy {
+                    from zipTree(zipPath)
+                    into "${rootProject.projectDir}/app/src/main/jniLibs/$abi"
+                    rename "${configValue('config_core')}_libretro_android.so", "libcore.so"
+                }
+                delete {
+                    delete zipPath
+                }
+                println("✓ Extracted and prepared core for $abi")
+            } else {
+                println("⚠️ Warning: Download verification failed for $abi")
             }
         }
     }
