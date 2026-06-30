@@ -47,6 +47,9 @@ class TouchOverlayView(
         // semi-transparent controls
         paint.style = Paint.Style.FILL
         paint.color = Color.argb(110, 0, 0, 0)
+        isClickable = true
+        isFocusable = true
+        isFocusableInTouchMode = true
     }
 
     override fun onDraw(canvas: Canvas) {
@@ -154,7 +157,12 @@ class TouchOverlayView(
                 }
                 return true
             }
-            MotionEvent.ACTION_UP, MotionEvent.ACTION_POINTER_UP, MotionEvent.ACTION_CANCEL -> {
+            MotionEvent.ACTION_CANCEL -> {
+                // Input was interrupted; clear all state and release any active buttons/axes
+                resetState()
+                return true
+            }
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_POINTER_UP -> {
                 val pid = event.getPointerId(index)
                 // button release
                 buttonPointers.remove(pid)?.let { key ->
