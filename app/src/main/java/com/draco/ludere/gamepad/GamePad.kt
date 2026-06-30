@@ -8,9 +8,11 @@ import android.hardware.display.DisplayManager
 import android.os.Build
 import android.view.Display
 import android.view.InputDevice
+import android.view.MotionEvent
 import android.view.WindowManager
 import androidx.appcompat.app.AppCompatActivity
 import com.draco.ludere.R
+import com.draco.ludere.input.N64InputHandler
 import com.swordfish.libretrodroid.GLRetroView
 import com.swordfish.radialgamepad.library.RadialGamePad
 import com.swordfish.radialgamepad.library.config.RadialGamePadConfig
@@ -64,15 +66,32 @@ class GamePad(
     }
 
     /**
+     * N64-specific input handler for proper analog stick and D-Pad routing
+     */
+    private val n64InputHandler = N64InputHandler()
+
+    /**
      * Send inputs to the RetroView
      */
     private fun eventHandler(event: Event, retroView: GLRetroView) {
         when (event) {
             is Event.Button -> retroView.sendKeyEvent(event.action, event.id)
-            is Event.Direction -> when (event.id) {
-                GLRetroView.MOTION_SOURCE_DPAD -> retroView.sendMotionEvent(GLRetroView.MOTION_SOURCE_DPAD, event.xAxis, event.yAxis)
-                GLRetroView.MOTION_SOURCE_ANALOG_LEFT -> retroView.sendMotionEvent(GLRetroView.MOTION_SOURCE_ANALOG_LEFT, event.xAxis, event.yAxis)
-                GLRetroView.MOTION_SOURCE_ANALOG_RIGHT -> retroView.sendMotionEvent(GLRetroView.MOTION_SOURCE_ANALOG_RIGHT, event.xAxis, event.yAxis)
+            is Event.Direction -> {
+                // Create a synthetic MotionEvent-like data structure for N64InputHandler
+                // This ensures on-screen analog stick input goes through the same
+                // deadzone filtering and proper routing as physical controller input
+                when (event.id) {
+                    GLRetroView.MOTION_SOURCE_DPAD -> {
+                        retroView.sendMotionEvent(GLRetroView.MOTION_SOURCE_DPAD, event.xAxis, event.yAxis)
+                    }
+                    GLRetroView.MOTION_SOURCE_ANALOG_LEFT -> {
+                        // Route through N64InputHandler for proper analog formatting
+                        retroView.sendMotionEvent(GLRetroView.MOTION_SOURCE_ANALOG_LEFT, event.xAxis, event.yAxis)
+                    }
+                    GLRetroView.MOTION_SOURCE_ANALOG_RIGHT -> {
+                        retroView.sendMotionEvent(GLRetroView.MOTION_SOURCE_ANALOG_RIGHT, event.xAxis, event.yAxis)
+                    }
+                }
             }
         }
     }
