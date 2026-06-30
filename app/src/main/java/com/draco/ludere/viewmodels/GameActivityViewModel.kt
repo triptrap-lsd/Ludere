@@ -37,9 +37,6 @@ class GameActivityViewModel(application: Application) : AndroidViewModel(applica
         controllerInput.menuCallback = { showMenu() }
     }
 
-    /**
-     * Create an instance of a menu dialog
-     */
     fun prepareMenu(context: Context) {
         if (menuDialog != null)
             return
@@ -50,38 +47,27 @@ class GameActivityViewModel(application: Application) : AndroidViewModel(applica
             .create()
     }
 
-    /**
-     * Show the menu
-     */
     fun showMenu() {
         if (retroView?.frameRendered?.value == true) {
             retroView?.let { retroViewUtils?.preserveEmulatorState(it) }
+            val context = getApplication<Application>().applicationContext
+            prepareMenu(context)
             menuDialog?.show()
         }
     }
 
-    /**
-     * Dismiss the menu
-     */
     fun dismissMenu() {
         if (menuDialog?.isShowing == true)
             menuDialog?.dismiss()
     }
 
-    /**
-     * Save the state of the emulator
-     */
     fun preserveState() {
         if (retroView?.frameRendered?.value == true)
             retroView?.let { retroViewUtils?.preserveEmulatorState(it) }
     }
 
-    /**
-     * Hide the system bars
-     */
     @Suppress("DEPRECATION")
     fun immersive(window: Window) {
-        /* Check if the config permits it */
         if (!resources.getBoolean(R.bool.config_fullscreen))
             return
 
@@ -101,9 +87,6 @@ class GameActivityViewModel(application: Application) : AndroidViewModel(applica
         }
     }
 
-    /**
-     * Hook the RetroView with the GLRetroView instance
-     */
     fun setupRetroView(activity: ComponentActivity, container: FrameLayout) {
         retroView = RetroView(activity, compositeDisposable)
         retroViewUtils = RetroViewUtils(activity)
@@ -113,7 +96,6 @@ class GameActivityViewModel(application: Application) : AndroidViewModel(applica
             activity.lifecycle.addObserver(retroView.view)
             retroView.registerFrameRenderedListener()
 
-            /* Restore state after first frame loaded */
             retroView.frameRendered.observe(activity) {
                 if (it != true)
                     return@observe
@@ -123,9 +105,6 @@ class GameActivityViewModel(application: Application) : AndroidViewModel(applica
         }
     }
 
-    /**
-     * Subscribe the GamePads to the RetroView
-     */
     fun setupGamePads(leftContainer: FrameLayout, rightContainer: FrameLayout) {
         val context = getApplication<Application>().applicationContext
 
@@ -144,9 +123,6 @@ class GameActivityViewModel(application: Application) : AndroidViewModel(applica
         }
     }
 
-    /**
-     * Hide the on-screen GamePads
-     */
     fun updateGamePadVisibility(activity: Activity, leftContainer: FrameLayout, rightContainer: FrameLayout) {
         val visibility = if (GamePad.shouldShowGamePads(activity))
             View.VISIBLE
@@ -157,39 +133,25 @@ class GameActivityViewModel(application: Application) : AndroidViewModel(applica
         rightContainer.visibility = visibility
     }
 
-    /**
-     * Process a key event and return the result
-     */
     fun processKeyEvent(keyCode: Int, event: KeyEvent): Boolean? {
         retroView?.let {
             return controllerInput.processKeyEvent(keyCode, event, it)
         }
-
         return false
     }
 
-    /**
-     * Process a motion event and return the result
-     */
     fun processMotionEvent(event: MotionEvent): Boolean? {
         retroView?.let {
             return controllerInput.processMotionEvent(event, it)
         }
-
         return false
     }
 
-    /**
-     * Deallocate the old RetroView
-     */
     fun detachRetroView(activity: ComponentActivity) {
         retroView?.let { activity.lifecycle.removeObserver(it.view) }
         retroView = null
     }
 
-    /**
-     * Set the screen orientation based on the config
-     */
     fun setConfigOrientation(activity: Activity) {
         when (resources.getInteger(R.integer.config_orientation)) {
             1 -> ActivityInfo.SCREEN_ORIENTATION_USER_PORTRAIT
@@ -201,42 +163,64 @@ class GameActivityViewModel(application: Application) : AndroidViewModel(applica
         }
     }
 
-    /**
-     * Dispose the composite disposable; call on onDestroy
-     */
     fun dispose() {
         compositeDisposable.dispose()
         compositeDisposable = CompositeDisposable()
     }
 
-    /**
-     * Class to handle the menu dialog actions
-     */
     inner class MenuOnClickListener : DialogInterface.OnClickListener {
         private val context = getApplication<Application>().applicationContext
 
-        val menuOptions = arrayOf(
-            context.getString(R.string.menu_reset),
-            context.getString(R.string.menu_save_state),
-            context.getString(R.string.menu_load_state),
-            context.getString(R.string.menu_mute),
-            context.getString(R.string.menu_fast_forward)
-        )
+        val menuOptions: Array<String>
+            get() {
+                val baseOptions = arrayOf(
+                    context.getString(R.string.menu_reset),
+                    context.getString(R.string.menu_save_state),
+                    context.getString(R.string.menu_load_state),
+                    context.getString(R.string.menu_mute),
+                    context.getString(R.string.menu_fast_forward)
+                )
+                
+                val toggleLabel = if (controllerInput.n64InputHandler.useAnalogStick) {
+                    context.getString(R.string.menu_toggle_analog)
+                } else {
+                    context.getString(R.string.menu_toggle_dpad)
+                }
+                
+                return baseOptions + toggleLabel
+            }
 
         override fun onClick(dialog: DialogInterface?, which: Int) {
-            when (menuOptions[which]) {
-                context.getString(R.string.menu_reset) -> retroView?.view?.reset()
-                context.getString(R.string.menu_save_state) -> retroView?.let {
-                    retroViewUtils?.saveState(it)
+            val context = getApplication<Application>().applicationContext
+            val baseOptions = arrayOf(
+                context.getString(R.string.menu_reset),
+                context.getString(R.string.menu_save_state),
+                context.getString(R.string.menu_load_state),
+                context.getString(R.string.menu_mute),
+                context.getString(R.string.menu_fast_forward)
+            )
+            
+            when {
+                which < baseOptions.size -> {
+                    when (baseOptions[which]) {
+                        context.getString(R.string.menu_reset) -> retroView?.view?.reset()
+                        context.getString(R.string.menu_save_state) -> retroView?.let {
+                            retroViewUtils?.saveState(it)
+                        }
+                        context.getString(R.string.menu_load_state) -> retroView?.let{
+                            retroViewUtils?.loadState(it)
+                        }
+                        context.getString(R.string.menu_mute) -> retroView?.let {
+                            it.view.audioEnabled = !it.view.audioEnabled
+                        }
+                        context.getString(R.string.menu_fast_forward) -> retroView?.let {
+                            retroViewUtils?.fastForward(it)
+                        }
+                    }
                 }
-                context.getString(R.string.menu_load_state) -> retroView?.let{
-                    retroViewUtils?.loadState(it)
-                }
-                context.getString(R.string.menu_mute) -> retroView?.let {
-                    it.view.audioEnabled = !it.view.audioEnabled
-                }
-                context.getString(R.string.menu_fast_forward) -> retroView?.let {
-                    retroViewUtils?.fastForward(it)
+                which == baseOptions.size -> {
+                    controllerInput.n64InputHandler.useAnalogStick = !controllerInput.n64InputHandler.useAnalogStick
+                    controllerInput.n64InputHandler.reset()
                 }
             }
         }
