@@ -6,11 +6,14 @@ import kotlin.math.abs
 
 /**
  * N64-specific input handler for proper analog stick and D-Pad support.
+ * Updated for normalized MotionEvent axis values (-1..1) and exposes helpers
+ * for virtual touch-controlled inputs.
  */
 class N64InputHandler {
     companion object {
-        private const val DEADZONE_THRESHOLD = 3276f
-        private const val ANALOG_MAX = 32767f
+        // MotionEvent axis values for touch and virtual controls are normalized (-1..1)
+        private const val DEADZONE_THRESHOLD = 0.05f   // adjust to taste (0.03..0.12)
+        private const val ANALOG_MAX = 1f
     }
     
     private var analogLeftX = 0f
@@ -83,8 +86,9 @@ class N64InputHandler {
         }
         val sign = if (value > 0) 1f else -1f
         val absValue = abs(value)
-        val scaledValue = (absValue - DEADZONE_THRESHOLD) / (ANALOG_MAX - DEADZONE_THRESHOLD) * ANALOG_MAX
-        return scaledValue * sign
+        // Scale linearly from (DEADZONE_THRESHOLD..ANALOG_MAX) to (0..1)
+        val scaled = (absValue - DEADZONE_THRESHOLD) / (ANALOG_MAX - DEADZONE_THRESHOLD)
+        return scaled * sign
     }
     
     fun reset() {
@@ -94,5 +98,22 @@ class N64InputHandler {
         analogRightY = 0f
         dpadX = 0f
         dpadY = 0f
+    }
+
+    // Exposed helpers for virtual touch controls (callers should pass the GLRetroView instance)
+    fun sendVirtualAnalogLeft(x: Float, y: Float, retroView: GLRetroView, port: Int = 0) {
+        val ax = applyDeadzone(x)
+        val ay = applyDeadzone(y)
+        analogLeftX = ax
+        analogLeftY = ay
+        retroView.sendMotionEvent(GLRetroView.MOTION_SOURCE_ANALOG_LEFT, ax, ay, port)
+    }
+
+    fun sendVirtualDpad(x: Float, y: Float, retroView: GLRetroView, port: Int = 0) {
+        if (x != dpadX || y != dpadY) {
+            dpadX = x
+            dpadY = y
+            retroView.sendMotionEvent(GLRetroView.MOTION_SOURCE_DPAD, x, y, port)
+        }
     }
 }
