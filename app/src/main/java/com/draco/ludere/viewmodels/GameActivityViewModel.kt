@@ -73,14 +73,24 @@ class GameActivityViewModel(application: Application) : AndroidViewModel(applica
     }
 
     @Suppress("DEPRECATION")
+    /**
+     * Enter immersive fullscreen mode.
+     *
+     * Compatibility notes (API 16–35):
+     * - API 16..29: uses deprecated SYSTEM_UI_FLAG_* flags on the decorView.
+     * - API 30..35 (Android 11+): prefers WindowInsetsController when available.
+     *   The insetsController is checked null-safely to avoid crashes on some OEM devices
+     *   where the controller may be unavailable even on supported API levels.
+     */
     fun immersive(window: Window) {
         if (!resources.getBoolean(R.bool.config_fullscreen))
             return
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            with (window.insetsController!!) {
-                hide(WindowInsets.Type.systemBars())
-                systemBarsBehavior = WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            // window.insetsController may be null on some devices; use let {} for null-safety
+            window.insetsController?.let { controller ->
+                controller.hide(WindowInsets.Type.systemBars())
+                controller.systemBarsBehavior = WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
             }
         } else {
             window.decorView.systemUiVisibility =
