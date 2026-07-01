@@ -78,6 +78,7 @@ task prepareCore {
             
             println("Downloading core for $abi...")
             
+            // Use ProcessBuilder for better control and error handling
             def pb = new ProcessBuilder("bash", "-c", "curl -fL# '${downloadUrl}' -o '${zipPath}'")
             pb.directory(rootProject.projectDir)
             pb.inheritIO()
@@ -124,7 +125,7 @@ dependencies {
     implementation 'androidx.lifecycle:lifecycle-livedata-ktx:2.4.0'
     implementation 'androidx.lifecycle:lifecycle-runtime-ktx:2.4.0'
 
-    implementation 'com.github.swordfish90:radialgamepad:0.6.0'
+    implementation 'com.github.controlwear:virtual-joystick-android:master-SNAPSHOT'
     implementation 'com.github.swordfish90:libretrodroid:0.7.0'
 
     implementation 'io.reactivex.rxjava2:rxandroid:2.1.1'
